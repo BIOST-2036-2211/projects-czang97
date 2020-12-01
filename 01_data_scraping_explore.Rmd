@@ -45,24 +45,55 @@ twitter_token <- create_token(
 - Topic modeling, unsupervised NLP like clustering 
 - Sentiment analysis
 
-```{r}
-# fn_twitter <- searchTwitter("#covid exclude:retweets",n=2000,lang="en")
-# 
-# #January 31 — WHO Issues Global Health Emergency
-# fn_twitter <- search_twitter_and_store("#covid exclude:retweets", since='2020-01-31', until='2020-02-01',lang="en")
-
+# scrap data
+```{r import twitter data}
 # 1. exclude retweets
 # 2. include word: covid
-since <- "2020-01-31"
-until <- "2020-02-02"
+rt <- search_tweets(q="covid", #keyword
+                    n=18000, #max tweets
+                    type = "recent", #most recent tweets
+                    include_rts = FALSE, #no retweets
+                  #  since=since, until= until,
+                    lang = "en")
 
-rt <- search_tweets(q="covid", n=100, type = "recent", include_rts = FALSE, since=since, until= until, lang = "en")
+rt <- as.data.frame(rt)
+date <- Sys.time() 
+#date <- Sys.Date()
+saveRDS(rt, file= paste("data/tdf_",date,".rds", sep = ""))
+```
+
+# Read data
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "")
+
+setwd("/Users/czang/Documents/2020Fall/2036DS/projects-czang97/data/")
+getwd()
+
+files <- list.files(path= "/Users/czang/Documents/2020Fall/2036DS/projects-czang97/data/", pattern = "tdf_2020")
+
+files
+
+dat_list = lapply(files, function (x) readRDS(x))
+
+df<-data.table::rbindlist(dat_list)
+#saveRDS(df, file="tdf_all.rds")
+```
 
 
-fn_twitter_df <- twListToDF(fn_twitter) # Convert to data frame
+- 682,129 tweets
 
-tweet_words <- fn_twitter_df %>% 
-  select(id, text) %>% 
+```{r}
+head(tdf_all)
+colnames(tdf_all)
+
+nrow(tdf_all)
+```
+
+```{r}
+
+tweet_words <- tdf_all %>% 
+  select(user_id, text) %>% 
   unnest_tokens(word,text)
 
 
@@ -79,7 +110,7 @@ tweet_words %>%
 # Create a list of stop words: a list of words that are not worth including
 my_stop_words <- stop_words %>% 
   select(-lexicon) %>% 
-  bind_rows(data.frame(word = c("https", "t.co", "rt", "19")))
+  bind_rows(data.frame(word = c("https", "t.co", "rt", "19", "covid", "covid_19","it's", "2", "1", "i'm", "due")))
 
 tweet_words_interesting <- tweet_words %>% 
   anti_join(my_stop_words)
@@ -95,22 +126,17 @@ tweet_words_interesting %>%
 
 # bigram
 ```{r}
-bigrams <- fn_twitter_df %>%
-  unnest_tokens(bigram, text, token = "ngrams", n = 2)%>%
+bigrams <- tweet_words_interesting %>%
+  unnest_tokens(bigram, word, token = "ngrams", n = 2)%>%
   count(bigram, sort=T) %>%
   filter(n > 1)
 
-trigrams <- fn_twitter_df %>%
-  unnest_tokens(bigram, text, token = "ngrams", n = 3)%>%
-  count(bigram, sort=T) %>%
-  filter(n > 1)
+# trigrams <- fn_twitter_df %>%
+#   unnest_tokens(bigram, text, token = "ngrams", n = 3)%>%
+#   count(bigram, sort=T) %>%
+#   filter(n > 1)
 ```
 
-```{r}
-library()
-get_sentiments("nrc")
-install.packages("nrc")
-```
 
 # sentiment
 ```{r}
