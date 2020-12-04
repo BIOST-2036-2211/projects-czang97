@@ -16,7 +16,7 @@ editor_options:
 
 ## Objective
 
-Twitter data is used to study **Covid-19** related **mental health sentiments**. In the past, a lot of studies has done on studying social behaviors using the social media data. In this study, we are investigating how **Covid-19** is influencing people's **mental health** through tweets. Since we are working with texts, natural language processing and text analysis is be used to clean the text data and tokenize words that are related to users' sentiments that reflects the status of mental health. As a preliminary analysis, we focus on sentiments of the single words. Sentiment analysis is proposed to associate words with sentiments such as positive, negative, and neutral. 
+Twitter data is used to study **Covid-19** related **mental health sentiments**. In the past, a lot of studies has done on studying social behaviors using the social media data. In this study, we are investigating how **Covid-19** is influencing people's **mental health** through tweets. Since we are working with texts, natural language processing and text analysis is be used to clean the text data and tokenize words that are related to users' sentiments that reflects the status of mental health.
 
 
 ## Set Up
@@ -59,7 +59,7 @@ twitter_token <- create_token(
    access_secret = access_secret)
 ```
 
-## Process of scraping data 
+## Set up Tweet scrapping criteria
 
 - exclude retweets
 - include keyword: covid'
@@ -102,7 +102,7 @@ saveRDS(rt, file= paste("data/tdf_",date,".rds", sep = ""))
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = "")
 
-setwd("/Users/czang/Documents/2020Fall/2036DS/projects-czang97/data/")
+setwd("/data/")
 getwd()
 
 files <- list.files(pattern = "tdf_2020")
@@ -117,7 +117,7 @@ saveRDS(df, file="tdf_all.rds")
 First, here is a glimpse of what data look like. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
-example1 <- readRDS("~/Documents/2020Fall/2036DS/projects-czang97/data/tdf_2020-11-17.1.rds")
+example1 <- readRDS("data/tdf_2020-11-17.1.rds")
 example1 <- example1%>%
   filter(is.na(hashtags))%>%
   distinct_at(vars(user_id), .keep_all = T)%>%
@@ -130,13 +130,7 @@ datatable(example1[1:10,])
 
 ### Data Cleaning Procedure
 
-#### 1. Convert the `created_at` variable to date
-
-```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
-example1$created_at[1]
-```
-
-#### 2. Tokenization
+#### 1. Tokenization
 
 Break the text into individual tokens and transform it to a tidy data structure. To do this, we use tidytext’s `unnest_tokens()` function.
 
@@ -145,10 +139,10 @@ Punctuation has been deleted.
 All uppercase words have been converted to lowercase.
 
 
-#### 3. Count the occurance of each token and identify the most frequent tokens.
+#### 2. Count the occurance of each token and identify the most frequent tokens.
 
 
-#### 4. Exclude Stop words.
+#### 3. Exclude Stop words.
 
 We built up stop words from the original stop words dictionary from the lexicon package
 
@@ -180,12 +174,14 @@ word_c <- tdf_all%>%
 
 
 ```{r echo=FALSE}
-tweet_words_clean_ls <- readRDS("~/Documents/2020Fall/2036DS/projects-czang97/tweet_words_clean_ls.rds")
+tweet_words_clean_ls <- readRDS("tweet_words_clean_ls.rds")
 
 word_c <- tweet_words_clean_ls$word_c
 
 word_raw <- tweet_words_clean_ls$word_raw
 ```
+
+# Chapter 1. Token (Single word)
 
 #### wordclouds
 ```{r fig.width=7, fig.height=7, fig.align='center'}
@@ -283,9 +279,9 @@ sentiment_nrc %>%
   theme_minimal()
 ```
 
-### 3. Affin Lexicon
+### 4. Affin Sentiment Lexicon
 
-The AFINN lexicon assigns words with a score that runs between -5 and 5, with negative scores indicating negative sentiment and positive scores indicating positive sentiment.
+The Afinn lexicon assigns words with a score that runs between -5 and 5, with negative scores indicating negative sentiment and positive scores indicating positive sentiment.
 
 ```{r fig.width=7, fig.height=6, fig.align='center'}
 sentiment_afinn <- word_c%>%
@@ -313,8 +309,21 @@ ggplot(aes(x = word, y = value, fill=value))+
 
 
 
+# Chapter 2. Bigram
 
-# Bigrams 
+Previously, we have seen the analysis of single words, and considered their relationships to sentiments of Covid. However, some term need to be evaluated together such as "tested positive" does not reflect a positive sentiment. 
+
+**Bigram** are tokenized pairs of adjacent words. 
+
+**N-gram** are tokenized consecutive sequences of words. Bigram is a case of N-gram when n = 2. 
+
+`unnest_tokens` function is being used to tokenize n-grams.   
+
+## Excluding stop words in a sequence
+- 1. separate bigrams into 2 words, word 1, word 2
+- 2. exclude stop words in word 1
+- 3. exclude stop words in word 2
+- 4. combine cleaned word 1 and word 2
 
 ```{r eval=FALSE, include=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
 bigram <- tdf_all%>%
@@ -334,7 +343,19 @@ bigram_cleaned <- bigram_count%>%
 ```
 
 ```{r echo=FALSE}
-bigram_df <- readRDS("~/Documents/2020Fall/2036DS/projects-czang97/bigram_clean.rds")
+bigram_df <- readRDS("bigram_clean.rds")%>%
+  filter(n > 1)
+```
+
+#### wordclouds
+```{r fig.align='center', fig.height=8, fig.width=8, message=FALSE, warning=FALSE, paged.print=FALSE}
+set.seed(1)
+wordcloud(words = bigram_df$bigram, 
+          freq = bigram_df$n, 
+          min.freq = 1,  
+          max.words=100, random.order=FALSE, rot.per=0.35,           
+          colors=brewer.pal(8, "Dark2"),
+          scale=c(5,0.1))
 ```
 
 ```{r eval=FALSE, include=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
@@ -357,3 +378,12 @@ ggraph(bigram_graph, layout = "fr") +
 
 ![graph](fig/network.png){width=100%}
 
+# Conclusion and Future Analysis
+
+- Negative sentiments and negative emotions were identified with COVID related tweets. 
+
+- In-depth analysis of bigram, including bigram sentiments
+
+- Expand pool of Twitter scrapping data
+
+- Study the trend of negative sentiment overtime. Study how people react to historical events such as vaccine avilability.  
